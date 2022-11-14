@@ -73,13 +73,13 @@ export async function getStaticPaths() {
  * Posts can come from the fs or our CMS
  */
 
-export async function getStaticProps({ params }) {
+export async function getStaticProps({ params, preview }) {
   let post
   try {
     const filesPath = path.join(process.cwd(), 'posts', `${params.slug}.mdx`)
     post = fs.readFileSync(filesPath, 'utf-8')
   } catch {
-    const cmsPosts = postsFromCMS.published.map((p) => {
+    const cmsPosts = (preview ? postsFromCMS.draft : postsFromCMS.published).map((p) => {
       return matter(p)
     })
 
