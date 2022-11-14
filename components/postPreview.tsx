@@ -1,5 +1,6 @@
+import { Button, Heading, Pane, Paragraph, majorScale } from 'evergreen-ui'
 import React, { FC } from 'react'
-import { Pane, Heading, Paragraph, Button, majorScale } from 'evergreen-ui'
+
 import Link from 'next/link'
 
 const PostPreview: FC<{ post: { title: string; summary: string; slug: string } }> = ({ post }) => {
