@@ -10,6 +10,7 @@ import Logo from '../../components/logo'
 import NewFolderButton from '../../components/newFolderButton'
 import NewFolderDialog from '../../components/newFolderDialog'
 import User from '../../components/user'
+import { UserSession } from '../../types'
 import { useRouter } from 'next/router'
 
 const App: FC<{ folders?: any[]; activeFolder?: any; activeDoc?: any; activeDocs?: any[] }> = ({
@@ -20,10 +21,23 @@ const App: FC<{ folders?: any[]; activeFolder?: any; activeDoc?: any; activeDocs
 }) => {
   const router = useRouter()
   const [session, loading] = useSession()
-  const [newFolderIsShown, setIsShown] = useState(false)
 
-  if (loading) {
-    return null
+  const [newFolderIsShown, setIsShown] = useState(false)
+  const [allFolders, setFolders] = useState(folders || [])
+
+  if (loading) return null
+
+  const handleNewFolder = async (name: string) => {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_HOST}/api/folder/`, {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    const { data } = await res.json()
+    setFolders((state) => [...state, data])
   }
 
   const Page = () => {
@@ -38,7 +52,7 @@ const App: FC<{ folders?: any[]; activeFolder?: any; activeDoc?: any; activeDocs
     return null
   }
 
-  if (!loading && !session) {
+  if (!session && !loading) {
     return (
       <Dialog
         isShown
@@ -64,24 +78,20 @@ const App: FC<{ folders?: any[]; activeFolder?: any; activeDoc?: any; activeDocs
           <NewFolderButton onClick={() => setIsShown(true)} />
         </Pane>
         <Pane>
-          <FolderList folders={[{ _id: 1, name: 'Hello' }]} />{' '}
+          <FolderList folders={allFolders} />{' '}
         </Pane>
       </Pane>
       <Pane marginLeft={300} width="calc(100vw - 300px)" height="100vh" overflowY="auto" position="relative">
         <User user={session.user} />
         <Page />
       </Pane>
-      <NewFolderDialog close={() => setIsShown(false)} isShown={newFolderIsShown} onNewFolder={() => {}} />
+      <NewFolderDialog close={() => setIsShown(false)} isShown={newFolderIsShown} onNewFolder={handleNewFolder} />
     </Pane>
   )
 }
 
-App.defaultProps = {
-  folders: [],
-}
-
-export async function getServerSideProps(ctx) {
-  const session = await getSession(ctx)
+export async function getServerSideProps(context) {
+  const session: { user: UserSession } = await getSession(context)
 
   if (!session || !session.user) {
     return { props: {} }
@@ -92,14 +102,13 @@ export async function getServerSideProps(ctx) {
   const folders = await folder.getFolders(db, session.user.id)
   props.folders = folders
 
-  //id will be an array because we are using params in a catch all route. the params are in the oder in which they were requested
-  if (ctx.params.id) {
-    const activeFolder = folders.find((f) => f._id === ctx.params.id[0])
+  if (context.params.id) {
+    const activeFolder = folders.find((f) => f._id === context.params.id[0])
     const activeDocs = await doc.getDocsByFolder(db, activeFolder._id)
     props.activeFolder = activeFolder
     props.activeDocs = activeDocs
 
-    const activeDocId = ctx.params.id[1]
+    const activeDocId = context.params.id[1]
 
     if (activeDocId) {
       props.activeDoc = await doc.getOneDoc(db, activeDocId)
@@ -111,15 +120,4 @@ export async function getServerSideProps(ctx) {
   }
 }
 
-/**
- * Catch all handler. Must handle all different page
- * states.
- * 1. Folders - none selected
- * 2. Folders => Folder selected
- * 3. Folders => Folder selected => Document selected
- *
- * An unauth user should not be able to access this page.
- *
- * @param context
- */
 export default App
